@@ -7,17 +7,18 @@ Custom commands and subagents for [OpenCode](https://github.com/sst/opencode).
 | Command | Description |
 |---------|-------------|
 | `/ask` | Read-only codebase Q&A — answers questions with file/line evidence, never modifies files |
-| `/simplify` | Simplify code using 3 parallel specialist subagents (minimal diff, readability, risk) |
-| `/batch` | Apply a repeated transformation across many files (parallel reads, safe sequential writes) |
+| `/simplify` | Fast auto-apply simplification using 3 parallel specialist subagents (reuse, quality, efficiency+risk) |
+| `/batch` | Claude-style orchestration for large changes: plan, split into independent units, run parallel worker tasks, and track PR outcomes |
 | `/codescene` | Fix CodeScene code smells in parallel — one subagent per file, single verification pass |
 
 ## Agents
 
 | Agent | Used by | Description |
 |-------|---------|-------------|
-| `simplify-minimal` | `/simplify` | Proposes the smallest safe simplification with minimal diff |
-| `simplify-readability` | `/simplify` | Improves readability and consistency while preserving behavior |
-| `simplify-risk` | `/simplify` | Identifies behavior-change risks and edge cases in proposed simplifications |
+| `simplify-minimal` | `/simplify` | Finds smallest safe simplifications and reuse opportunities |
+| `simplify-readability` | `/simplify` | Identifies code-quality and readability improvements |
+| `simplify-risk` | `/simplify` | Identifies efficiency issues, behavior risks, and verification steps |
+| `batch-worker` | `/batch` | Executes one approved unit in an isolated worktree, verifies it, and reports `PR:` status |
 | `codescene-fixer` | `/codescene` | Fixes CodeScene code smells in a single file |
 
 ## Install

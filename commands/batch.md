@@ -1,5 +1,5 @@
 ---
-description: Apply a repeated transformation across many files (parallel reads, safe sequential writes)
+description: Orchestrate large parallel codebase changes with planning, worker tasks, and PR tracking
 agent: build
 ---
 
@@ -7,38 +7,78 @@ You are running /batch.
 
 Arguments: $ARGUMENTS
 
-## Step 1 — Clarify inputs
+Goal: execute a large, parallelizable migration/refactor by orchestrating independent worker tasks. Use OpenCode native `batch` for parallel tool calls; do not reimplement batching manually.
 
-Parse $ARGUMENTS for:
-- **Target files**: glob pattern, directory, or description (e.g. `src/**/*.ts`, `all test files`)
-- **Transformation**: what change to make (e.g. `rename foo to bar`, `add null check before .map(`)
-- **Mode**: `propose` (default — show patches first) or `apply` (apply immediately)
+If $ARGUMENTS is empty, stop and return:
+- a one-line explanation of required input
+- 3 examples:
+  - `/batch migrate from react-query v4 to v5`
+  - `/batch replace lodash get/set usages with native equivalents`
+  - `/batch rename legacy API client types to sdk client types`
 
-If any of the above is missing or ambiguous, ask the user before continuing.
+## Phase 1 - Preflight and planning
 
-## Step 2 — Discover target files
+1) Verify prerequisites:
+- ensure this is a git repository (`git rev-parse --is-inside-work-tree`)
+- if not a git repo, stop with a clear error that `/batch` requires git for branch/worktree/PR workflow
 
-Use glob/grep tools to enumerate all matching files. Show the user the list and ask for confirmation if it exceeds 10 files.
+2) Research scope in foreground:
+- launch one or more `task` calls to `explore` (parallel when useful) to map impacted files, call sites, and conventions
+- use `task` with `general` only when deeper reasoning is needed beyond discovery
+- keep findings concise and concrete
 
-## Step 3 — Analyze in parallel
+3) Decompose work into independent units:
+- create 5-30 units when scope warrants it; small changes can use fewer units
+- each unit must be independently implementable and mergeable
+- prefer per-module/per-directory boundaries over arbitrary file lists
+- keep unit size roughly uniform
 
-Use the `batch` tool to read all target files simultaneously (or grep for the relevant pattern). Keep individual reads focused — only fetch the lines needed for the transformation.
+4) Determine e2e verification recipe workers can execute autonomously:
+- discover existing e2e/integration scripts, browser/CLI verification paths, or dev-server + endpoint checks
+- if no concrete e2e path is inferable, ask the user with the `question` tool and offer 2-3 specific options based on discovered project setup
+- write one short shared recipe (or an explicit "skip e2e because ..." instruction)
 
-## Step 4 — Produce a summary table
+5) Present plan and wait for explicit approval before execution. Include:
+- research summary
+- numbered unit list: title, scope (files/directories), one-line change intent
+- shared e2e recipe
+- worker prompt template you will use
 
-For each file, output:
+## Phase 2 - Execute workers in parallel (after approval)
 
-| File | Change summary | Risk (low/med/high) |
-|------|---------------|---------------------|
+After plan approval:
 
-Flag `high` risk if the change affects exported symbols, touches tests, or is non-trivial.
+1) Spawn one worker task per unit with `subagent_type: "batch-worker"`.
 
-## Step 5 — Confirm before writing
+2) Use the native `batch` tool to launch worker `task` calls in parallel.
+- pass each worker a fully self-contained prompt containing:
+  - overall goal (`$ARGUMENTS`)
+  - the unit title/scope/change intent
+  - relevant discovered conventions
+  - shared e2e recipe
+- run all units in a single `batch` call when unit count <= 25
+- if unit count > 25, execute in waves of up to 25 while preserving unit numbering
 
-Present the table and proposed patches. Ask: "Apply all changes?" (or list high-risk ones separately for selective approval).
+3) Do not batch operations with dependencies between each other.
 
-## Step 6 — Apply edits
+## Phase 3 - Track status and aggregate results
 
-Apply changes sequentially (one file at a time). After all edits, provide:
-- Final recap: N files changed
-- Suggested verification: test command to run, grep to confirm the pattern is gone
+Immediately after launch, render status table:
+
+| # | Unit | Status | PR |
+|---|------|--------|----|
+| 1 | <title> | running | - |
+
+As worker results arrive:
+- parse final `PR:` line from each worker
+- update status to `done` when PR URL exists
+- update status to `failed` when output is `PR: none - <reason>` or missing PR line
+- keep a brief failure note per failed unit
+
+When all workers finish, render final table and one-line rollup:
+- `<done>/<total> units landed as PRs`
+
+Operational requirements:
+- Never execute workers before explicit plan approval.
+- Never let one worker modify another unit's intended scope.
+- Keep coordinator output concise and execution-focused.

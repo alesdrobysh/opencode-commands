@@ -1,50 +1,78 @@
 ---
-description: Simplify uncommitted changes using 3 parallel specialist subagents (minimal diff, readability, risk)
-agent: build
+description: Fast simplification of uncommitted changes using 3 parallel specialist subagents (reuse, quality, efficiency)
+agent: simplify
 ---
 
 You are running /simplify.
 
 Arguments: $ARGUMENTS
 
-## Step 1 — Gather uncommitted changes
+Default mode: auto-apply. Do not ask for confirmation unless the user explicitly asks for preview/plan mode.
 
-Run `git diff` (unstaged) and `git diff --cached` (staged) to collect all uncommitted changes.
+If $ARGUMENTS contains `plan`, `preview`, `dry-run`, or `no-apply`, switch to plan mode and do not edit files.
+
+## Step 1 - Identify scope quickly
+
+Collect uncommitted changes with:
+- `git diff`
+- `git diff --cached`
+
 If both are empty, tell the user there are no uncommitted changes and stop.
 
-Parse the diff output to build a list of affected files and the specific changed hunks in each.
+Build a compact scope brief:
+- changed files
+- staged/unstaged status
+- optional user focus from $ARGUMENTS
 
-If $ARGUMENTS contains additional filters (e.g. file paths, function names), narrow the scope to only matching files/hunks.
+Do not pre-read full file context for every changed file. Start from diff-first context for speed.
 
-## Step 2 — Build scope brief
+## Step 2 - Launch 3 review subagents in parallel
 
-Write a one-paragraph "scope brief" stating:
-- Which files have uncommitted changes
-- How many hunks / lines changed per file
-- Whether changes are staged, unstaged, or both
+Launch all three `task` calls concurrently in one message (no sequential waiting, no extra wrapper command):
 
-## Step 3 — Read full context for changed regions
+- `simplify-minimal` - prioritize reuse and smallest safe diff
+- `simplify-readability` - identify quality and maintainability issues in changed code
+- `simplify-risk` - identify efficiency concerns, behavior risks, and verification needs
 
-For each affected file, read enough surrounding context around the changed hunks (at least 30 lines above and below) so the subagents can reason about behavior.
+Pass each subagent the same compact input:
+- scope brief
+- combined raw diff
+- user focus from $ARGUMENTS
 
-## Step 4 — Launch 3 subagents IN PARALLEL
+Tell subagents to return concise findings, not full-file rewrites.
 
-Use the `batch` tool to execute all 3 `task` calls simultaneously:
+## Step 3 - Aggregate and prioritize
 
-- subagent_type: `simplify-minimal` — find the smallest behavior-preserving simplification of the uncommitted changes
-- subagent_type: `simplify-readability` — find readability/naming/structure improvements within the uncommitted changes
-- subagent_type: `simplify-risk` — identify behavior-change risks and required tests for the uncommitted changes
+Merge subagent findings into one ordered action list:
+1. minimal safe simplifications and reuse wins
+2. code quality/readability improvements
+3. efficiency improvements and risk mitigations
 
-Pass each subagent the scope brief, the raw diffs, and the surrounding code context.
+Drop duplicates and obvious false positives.
 
-## Step 5 — Aggregate results
+## Step 4 - Apply edits immediately (default)
 
-Combine the three outputs into:
-1. **Recommended plan** — ordered list of changes, prioritized by safety and impact (minimal first)
-2. **Proposed patches** — grouped by file, with exact before/after snippets (only touching lines within the uncommitted diff)
-3. **Risk + verification checklist** — consolidated from the risk subagent, deduped
+In auto-apply mode:
+- implement the prioritized fixes directly
+- keep edits minimal and scoped to changed files when possible
+- only touch lines outside changed files if required for correctness
+- if a suggestion is risky or uncertain, skip it and note why
 
-## Step 6 — Ask before applying
+In plan mode:
+- provide the ordered plan and proposed patch snippets
+- do not apply edits
 
-Present the aggregated plan to the user. Ask: "Apply these changes now?"
-Only apply edits after explicit confirmation. Keep diffs minimal — do not modify code outside the uncommitted change regions unless strictly necessary for correctness.
+## Step 5 - Verification
+
+Run focused verification when possible:
+- targeted tests for changed areas
+- or lightweight project checks relevant to the modified files
+
+If you cannot run verification, provide exact commands for the user.
+
+## Step 6 - Report
+
+Return a concise summary:
+- what was changed (or planned, in plan mode)
+- what was skipped and why
+- verification results/checklist
