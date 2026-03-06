@@ -1,6 +1,6 @@
 ---
 description: Resolve CodeScene code smells (parallel, one subagent per file)
-agent: codescene
+agent: build
 ---
 
 You are running /codescene.

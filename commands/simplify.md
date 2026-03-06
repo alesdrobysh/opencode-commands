@@ -1,6 +1,6 @@
 ---
 description: Fast simplification of uncommitted changes using 3 parallel specialist subagents (reuse, quality, efficiency)
-agent: simplify
+agent: build
 ---
 
 You are running /simplify.
