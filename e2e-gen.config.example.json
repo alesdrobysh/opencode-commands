@@ -1,0 +1,7 @@
+{
+  "e2eRepo": "/absolute/path/to/your/e2e-repo",
+  "repos": {
+    "group/project": "/absolute/path/to/local/clone",
+    "another-group/another-project": "/absolute/path/to/another/clone"
+  }
+}
