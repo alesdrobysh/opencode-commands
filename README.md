@@ -26,22 +26,24 @@ Custom commands and subagents for [OpenCode](https://github.com/sst/opencode).
 
 ## Install
 
-Copy (or symlink) the directories into your OpenCode config folder:
-
 ```bash
 git clone https://github.com/alesdrobysh/opencode-commands.git
 cd opencode-commands
-
-# Copy
-cp -r commands/* ~/.opencode/commands/
-cp -r agents/* ~/.opencode/agents/
-
-# Or symlink the whole folders (keeps them in sync with git pull)
-ln -s "$PWD/commands" ~/.opencode/commands
-ln -s "$PWD/agents" ~/.opencode/agents
+./install.sh
 ```
 
-> **Note:** If `~/.opencode/commands/` or `~/.opencode/agents/` already exist, use the copy approach and merge files manually.
+To update later, pull and re-run the installer:
+
+```bash
+./install.sh --pull
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--pull` | Run `git pull` before installing |
+| `--dry-run` | Show what would change without making any edits |
 
 ## Requirements
 
